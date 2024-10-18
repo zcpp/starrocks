@@ -6,7 +6,7 @@
 
     <groupId>com.starrocks</groupId>
     <artifactId>trino-starrocks</artifactId>
-    <version>418</version>
+    <version>446</version>
     <description>Trino - StarRocks Connector</description>
     <packaging>trino-plugin</packaging>
 

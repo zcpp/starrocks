@@ -27,6 +27,7 @@ import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.DecimalModule;
+import io.opentelemetry.api.OpenTelemetry;
 import io.trino.plugin.jdbc.DriverConnectionFactory;
 import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.JdbcClient;
@@ -36,7 +37,7 @@ import io.trino.plugin.jdbc.credential.CredentialConfig;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
 import io.trino.plugin.jdbc.ptf.Query;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
-import io.trino.spi.ptf.ConnectorTableFunction;
+import io.trino.spi.function.table.ConnectorTableFunction;
 
 import java.sql.SQLException;
 import java.util.Properties;
@@ -81,14 +82,13 @@ public class StarRocksClientModule
     @Provides
     @Singleton
     @ForBaseJdbc
-    public static ConnectionFactory createConnectionFactory(BaseJdbcConfig config, CredentialProvider credentialProvider, StarRocksJdbcConfig starRocksJdbcConfig)
+    public static ConnectionFactory createConnectionFactory(BaseJdbcConfig config, CredentialProvider credentialProvider, StarRocksJdbcConfig starRocksJdbcConfig, OpenTelemetry openTelemetry)
             throws SQLException
     {
-        return new DriverConnectionFactory(
-                new Driver(),
-                transConnectionUrl(config.getConnectionUrl()),
-                getConnectionProperties(starRocksJdbcConfig),
-                credentialProvider);
+        return DriverConnectionFactory.builder(new Driver(), transConnectionUrl(config.getConnectionUrl()), credentialProvider)
+                .setConnectionProperties(getConnectionProperties(starRocksJdbcConfig))
+                .setOpenTelemetry(openTelemetry)
+                .build();
     }
 
     public static Properties getConnectionProperties(StarRocksJdbcConfig starRocksJdbcConfig)
