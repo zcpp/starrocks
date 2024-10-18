@@ -157,6 +157,7 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.timeWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.timestampWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.toTrinoTimestamp;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varbinaryReadFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varbinaryWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
@@ -187,6 +188,9 @@ import static java.time.format.DateTimeFormatter.ISO_DATE;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
+
+import static java.time.ZoneOffset.UTC;
+import static io.trino.spi.type.Timestamps.round;
 
 public class StarRocksClient
         extends BaseJdbcClient
@@ -500,9 +504,34 @@ public class StarRocksClient
             public long readLong(ResultSet resultSet, int columnIndex)
                     throws SQLException
             {
-                return timestampReadFunction(timestampType).readLong(resultSet, columnIndex);
+                return srTimestampReadFunction(timestampType).readLong(resultSet, columnIndex);
             }
         };
+    }
+
+    // Charlie added.
+    private static LongReadFunction srTimestampReadFunction(TimestampType timestampType)
+    {
+        checkArgument(timestampType.getPrecision() <= TimestampType.MAX_SHORT_PRECISION, "Precision is out of range: %s", timestampType.getPrecision());
+        return (resultSet, columnIndex) -> srToTrinoTimestamp(timestampType, resultSet.getObject(columnIndex, LocalDateTime.class));
+    }
+
+    // Charlie added.
+    private static final int MICROSECONDS_PER_SECOND = 1_000_000;
+    private static final int NANOSECONDS_PER_MICROSECOND = 1_000;
+    private static long srToTrinoTimestamp(TimestampType timestampType, LocalDateTime localDateTime)
+    {
+        long precision = timestampType.getPrecision();
+        checkArgument(precision <= TimestampType.MAX_SHORT_PRECISION, "Precision is out of range: %s", precision);
+        long epochMicros = localDateTime.toEpochSecond(UTC) * MICROSECONDS_PER_SECOND
+                + localDateTime.getNano() / NANOSECONDS_PER_MICROSECOND;
+        
+        verify(
+                epochMicros == round(epochMicros, TimestampType.MAX_SHORT_PRECISION - timestampType.getPrecision()),
+                "Invalid value of epochMicros for precision %s: %s",
+                precision,
+                epochMicros);
+        return epochMicros;
     }
 
     private static LongReadFunction starRocksTimeReadFunction(TimeType timeType)
@@ -529,12 +558,15 @@ public class StarRocksClient
 
     private static int getTimestampPrecision(int timestampColumnSize)
     {
+        /*
         if (timestampColumnSize == ZERO_PRECISION_TIMESTAMP_COLUMN_SIZE) {
             return 0;
         }
         int timestampPrecision = timestampColumnSize - ZERO_PRECISION_TIMESTAMP_COLUMN_SIZE - 1;
         verify(1 <= timestampPrecision && timestampPrecision <= MAX_SUPPORTED_DATE_TIME_PRECISION, "Unexpected timestamp precision %s calculated from timestamp column size %s", timestampPrecision, timestampColumnSize);
         return timestampPrecision;
+        */
+        return MAX_SUPPORTED_DATE_TIME_PRECISION;
     }
 
     private static int getTimePrecision(int timeColumnSize)
