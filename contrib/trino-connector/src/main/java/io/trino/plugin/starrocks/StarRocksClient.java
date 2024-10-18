@@ -1066,9 +1066,11 @@ public class StarRocksClient
                     })
                     .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
         }
-
+        
         Map<String, String> getColumnHistograms(JdbcTableHandle table)
         {
+            return ImmutableMap.of();
+            /*
             try {
                 handle.execute("SELECT 1 FROM INFORMATION_SCHEMA.COLUMN_STATISTICS WHERE 0=1");
             }
@@ -1087,6 +1089,7 @@ public class StarRocksClient
                     .bind("table_name", remoteTableName.getTableName())
                     .map((rs, ctx) -> new SimpleEntry<>(rs.getString("COLUMN_NAME"), rs.getString("HISTOGRAM")))
                     .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+            */
         }
     }
 
